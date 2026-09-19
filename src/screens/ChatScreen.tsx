@@ -31,7 +31,7 @@ export function ChatScreen({ navigation, route }: Props) {
     agentStore.getById(agentId).then(setAgent);
   }, [agentId]);
 
-  const { messages, status, isSending, sendMessage, clearHistory } = useChat(agent);
+  const { messages, status, isSending, pending, sendMessage, resolvePendingTool, clearHistory } = useChat(agent);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -70,7 +70,15 @@ export function ChatScreen({ navigation, route }: Props) {
         data={messages}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messages}
-        renderItem={({ item }) => <MessageBubble message={item} />}
+        renderItem={({ item }) => (
+          <MessageBubble
+            message={item}
+            isPending={pending?.messageId === item.id}
+            onApprove={() => resolvePendingTool(true)}
+            onDeny={() => resolvePendingTool(false)}
+            onOpenBrowser={(profileId) => navigation.navigate('Browser', { profileId })}
+          />
+        )}
       />
 
       <View style={styles.inputRow}>
@@ -81,12 +89,14 @@ export function ChatScreen({ navigation, route }: Props) {
           placeholder="Message this agent…"
           placeholderTextColor={colors.textMuted}
           multiline
+          editable={!pending}
         />
         {isSending ? (
           <ActivityIndicator color={colors.primary} style={styles.sendButton} />
         ) : (
           <TouchableOpacity
-            style={styles.sendButton}
+            style={[styles.sendButton, !!pending && styles.sendButtonDisabled]}
+            disabled={!!pending}
             onPress={() => {
               const text = draft;
               setDraft('');
@@ -101,8 +111,51 @@ export function ChatScreen({ navigation, route }: Props) {
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  isPending,
+  onApprove,
+  onDeny,
+  onOpenBrowser,
+}: {
+  message: ChatMessage;
+  isPending: boolean;
+  onApprove: () => void;
+  onDeny: () => void;
+  onOpenBrowser: (profileId: string) => void;
+}) {
+  if (message.role === 'tool') {
+    return (
+      <View style={styles.toolRow}>
+        <View style={[styles.toolPill, message.isError && styles.toolPillError]}>
+          <Text style={styles.toolPillLabel}>🔧 {message.toolName}</Text>
+          <Text style={styles.toolPillContent}>{message.content}</Text>
+          {isPending && (
+            <View style={styles.toolApprovalRow}>
+              <TouchableOpacity style={styles.approveButton} onPress={onApprove}>
+                <Text style={styles.approveButtonText}>Approve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.denyButton} onPress={onDeny}>
+                <Text style={styles.denyButtonText}>Deny</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {message.toolUiAction?.type === 'open_browser' && (
+            <TouchableOpacity
+              style={styles.openBrowserButton}
+              onPress={() => onOpenBrowser(message.toolUiAction!.profileId)}
+            >
+              <Text style={styles.openBrowserButtonText}>Open browser ›</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   const isUser = message.role === 'user';
+  const isToolRequest = message.role === 'assistant' && (message.toolCalls?.length ?? 0) > 0;
+
   return (
     <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
       <View
@@ -112,7 +165,12 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           message.isError && styles.bubbleError,
         ]}
       >
-        <Text style={styles.bubbleText}>{message.content}</Text>
+        {!!message.content && <Text style={styles.bubbleText}>{message.content}</Text>}
+        {isToolRequest && (
+          <Text style={styles.toolRequestText}>
+            🔧 calling {message.toolCalls!.map((c) => c.name).join(', ')}…
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -139,6 +197,32 @@ const styles = StyleSheet.create({
   bubbleAgent: { backgroundColor: colors.surfaceVariant },
   bubbleError: { backgroundColor: '#3A1F1F' },
   bubbleText: { color: colors.text, fontSize: 15, lineHeight: 20 },
+  toolRequestText: { color: colors.textMuted, fontSize: 13, fontStyle: 'italic', marginTop: 4 },
+  toolRow: { width: '100%', marginBottom: 10, alignItems: 'flex-start' },
+  toolPill: {
+    maxWidth: '90%',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 10,
+  },
+  toolPillError: { borderColor: colors.danger },
+  toolPillLabel: { color: colors.secondary, fontSize: 12, fontWeight: '700', marginBottom: 4 },
+  toolPillContent: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  toolApprovalRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  approveButton: { backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6 },
+  approveButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  denyButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  denyButtonText: { color: colors.textMuted, fontWeight: '700', fontSize: 13 },
+  openBrowserButton: { marginTop: 10 },
+  openBrowserButtonText: { color: colors.secondary, fontWeight: '700', fontSize: 13 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -169,5 +253,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sendButtonDisabled: { opacity: 0.4 },
   sendButtonText: { color: '#fff', fontWeight: '700' },
 });

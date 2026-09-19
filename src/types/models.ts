@@ -47,6 +47,11 @@ export interface CredentialGroup {
 /**
  * One configured agent endpoint. Multiple agents may share the same `credentialGroupId` so a
  * single sign-in is reused across all of them — that sharing is the whole point of the hub.
+ *
+ * `enabledTools` is the *exposure* layer on top of the harness's tool *registry*
+ * (`src/tools/registry.ts`): every tool that exists is registered globally, but only the names
+ * listed here are ever described to this agent's model or dispatched on its behalf. An agent
+ * with no `enabledTools` gets no tools at all — tool use is strictly opt-in per agent.
  */
 export interface Agent {
   id: string;
@@ -57,6 +62,8 @@ export interface Agent {
   systemPrompt?: string;
   credentialGroupId?: string;
   createdAtEpochMs: number;
+  enabledTools?: string[];
+  autoApproveTools?: boolean;
 }
 
 export type ConnectionStatus = 'CONNECTED' | 'NO_CREDENTIAL' | 'EXPIRED' | 'ERROR' | 'UNKNOWN';
@@ -91,13 +98,30 @@ export const BROWSER_PRESETS: BrowserPreset[] = [
   { name: 'Gemini', homeUrl: 'https://gemini.google.com' },
 ];
 
-export type ChatRole = 'user' | 'assistant' | 'system';
+export type ChatRole = 'user' | 'assistant' | 'system' | 'tool';
+
+/** One tool invocation the model asked for, attached to the assistant turn that requested it. */
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
 
 export interface ChatMessage {
   id: string;
   agentId: string;
   role: ChatRole;
+  /** Assistant text, user text, or (for role 'tool') the tool's result rendered as text. */
   content: string;
   timestampEpochMs: number;
   isError?: boolean;
+  /** Present on an assistant message that requested one or more tool calls. */
+  toolCalls?: ToolCall[];
+  /** Present on a 'tool' role message: which call (by id) this is the result of. */
+  toolCallId?: string;
+  toolName?: string;
+  /** Present on a 'tool' role message awaiting the user's decision before the loop continues. */
+  pendingApproval?: boolean;
+  /** Present on a 'tool' role message whose result the UI can act on, e.g. open a browser tab. */
+  toolUiAction?: { type: 'open_browser'; profileId: string };
 }

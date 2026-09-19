@@ -12,6 +12,7 @@ const KEYS = {
   credentialGroups: 'truos.credentialGroups',
   chatPrefix: 'truos.chat.',
   browserProfiles: 'truos.browserProfiles',
+  memoryPrefix: 'truos.memory.',
 } as const;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -130,5 +131,31 @@ export const chatStore = {
   },
   async clear(agentId: string): Promise<void> {
     await AsyncStorage.removeItem(KEYS.chatPrefix + agentId);
+  },
+  async update(agentId: string, messageId: string, patch: Partial<ChatMessage>): Promise<ChatMessage[]> {
+    const existing = await chatStore.getForAgent(agentId);
+    const updated = existing.map((m) => (m.id === messageId ? { ...m, ...patch } : m));
+    await writeJson(KEYS.chatPrefix + agentId, updated);
+    return updated;
+  },
+};
+
+/**
+ * Minimal per-agent key/value notes for the harness's `remember` / `recall` tools — a stand-in
+ * for OpenClaw's local-first markdown memory, scoped to a single JSON blob per agent for now
+ * (see README roadmap for moving this to real files).
+ */
+export const memoryStore = {
+  async getAll(agentId: string): Promise<Record<string, string>> {
+    return readJson<Record<string, string>>(KEYS.memoryPrefix + agentId, {});
+  },
+  async set(agentId: string, key: string, value: string): Promise<void> {
+    const all = await memoryStore.getAll(agentId);
+    all[key] = value;
+    await writeJson(KEYS.memoryPrefix + agentId, all);
+  },
+  async get(agentId: string, key: string): Promise<string | undefined> {
+    const all = await memoryStore.getAll(agentId);
+    return all[key];
   },
 };

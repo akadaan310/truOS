@@ -5,6 +5,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -12,10 +13,14 @@ import {
 } from 'react-native';
 import { useCredentialGroups } from '../hooks/useCredentialGroups';
 import { agentStore } from '../storage/metadataStore';
+import { getAllTools } from '../tools/registry';
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { PROVIDER_LABELS, PROVIDER_TYPES, type Agent, type ProviderType } from '../types/models';
 import { generateId } from '../utils/id';
+
+const ALL_TOOLS = getAllTools();
+const GATEWAYS_WITHOUT_TOOLS: ProviderType[] = ['CUSTOM_WEBHOOK'];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AgentEdit'>;
 
@@ -39,6 +44,8 @@ export function AgentEditScreen({ navigation, route }: Props) {
   const [model, setModel] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [credentialGroupId, setCredentialGroupId] = useState<string | undefined>(undefined);
+  const [enabledTools, setEnabledTools] = useState<string[]>([]);
+  const [autoApproveTools, setAutoApproveTools] = useState(false);
 
   useEffect(() => {
     if (!agentId) return;
@@ -51,8 +58,18 @@ export function AgentEditScreen({ navigation, route }: Props) {
       setSystemPrompt(agent.systemPrompt ?? '');
       setCredentialGroupId(agent.credentialGroupId);
       setCreatedAtEpochMs(agent.createdAtEpochMs);
+      setEnabledTools(agent.enabledTools ?? []);
+      setAutoApproveTools(agent.autoApproveTools ?? false);
     });
   }, [agentId]);
+
+  const toolsSupported = !GATEWAYS_WITHOUT_TOOLS.includes(providerType);
+
+  const toggleTool = (toolName: string) => {
+    setEnabledTools((current) =>
+      current.includes(toolName) ? current.filter((t) => t !== toolName) : [...current, toolName],
+    );
+  };
 
   const save = async () => {
     if (!name.trim() || !baseUrl.trim()) return;
@@ -65,6 +82,8 @@ export function AgentEditScreen({ navigation, route }: Props) {
       systemPrompt: systemPrompt.trim() || undefined,
       credentialGroupId,
       createdAtEpochMs,
+      enabledTools: toolsSupported && enabledTools.length > 0 ? enabledTools : undefined,
+      autoApproveTools: toolsSupported ? autoApproveTools : undefined,
     };
     await agentStore.save(agent);
     navigation.goBack();
@@ -146,6 +165,49 @@ export function AgentEditScreen({ navigation, route }: Props) {
             placeholderTextColor={colors.textMuted}
           />
         </Field>
+
+        {toolsSupported && (
+          <View style={styles.credentialCard}>
+            <Text style={styles.credentialTitle}>Tools</Text>
+            <Text style={styles.credentialBody}>
+              What this agent can call mid-conversation — from introspecting the hub to asking
+              another agent for help. Off by default; turn on only what this agent needs.
+            </Text>
+            <View style={styles.chipRow}>
+              {ALL_TOOLS.map((tool) => (
+                <TouchableOpacity
+                  key={tool.spec.name}
+                  style={[styles.chip, enabledTools.includes(tool.spec.name) && styles.chipSelected]}
+                  onPress={() => toggleTool(tool.spec.name)}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      enabledTools.includes(tool.spec.name) && styles.chipTextSelected,
+                    ]}
+                  >
+                    {tool.spec.name}
+                    {tool.riskLevel === 'sensitive' ? ' ⚠︎' : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.switchLabel}>Auto-approve sensitive tools</Text>
+                <Text style={styles.switchHint}>
+                  Tools marked ⚠︎ (delegating to another agent, fetching a URL) normally pause for
+                  your approval each time. Turn this on to skip that for this agent.
+                </Text>
+              </View>
+              <Switch
+                value={autoApproveTools}
+                onValueChange={setAutoApproveTools}
+                trackColor={{ true: colors.primary, false: colors.border }}
+              />
+            </View>
+          </View>
+        )}
 
         <View style={styles.credentialCard}>
           <Text style={styles.credentialTitle}>Shared session</Text>
@@ -251,4 +313,7 @@ const styles = StyleSheet.create({
   credentialBody: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
   credentialEmpty: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
   manageLink: { color: colors.secondary, fontWeight: '600', marginTop: 8 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 12 },
+  switchLabel: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 4 },
+  switchHint: { fontSize: 12, color: colors.textMuted, lineHeight: 16 },
 });
