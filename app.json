@@ -26,6 +26,12 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9af30b03-7ca3-4bf2-b094-c50f0ded3a92"
+      }
+    },
+    "owner": "akadaans-team"
   }
 }
