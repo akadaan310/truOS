@@ -15,11 +15,17 @@ export interface GatewayResult {
 export interface AgentGateway {
   /** Whether this protocol can carry `tools`/`tool_calls` at all — gates the harness's tool loop. */
   supportsTools: boolean;
+  /** Whether `sendMessage`'s `onTextDelta` is honored for a live, token-by-token reply. */
+  supportsStreaming: boolean;
   sendMessage(
     agent: Agent,
     secret: string | null,
     history: ChatMessage[],
     tools: ToolSpec[],
+    /** Called with the accumulated text so far as it streams in. Only ever used when `tools` is
+     * empty — the harness never streams a turn that could produce a tool call, to keep tool-call
+     * accumulation simple and reliable. */
+    onTextDelta?: (textSoFar: string) => void,
   ): Promise<GatewayResult>;
 }
 

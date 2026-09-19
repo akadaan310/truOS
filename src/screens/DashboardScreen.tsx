@@ -1,8 +1,10 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -10,16 +12,17 @@ import {
   View,
 } from 'react-native';
 import { StatusChip } from '../components/StatusChip';
+import { AGENT_TEMPLATES } from '../data/agentTemplates';
 import { useAgents, type AgentWithStatus } from '../hooks/useAgents';
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { PROVIDER_LABELS } from '../types/models';
-import { useFocusEffect } from '@react-navigation/native';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 export function DashboardScreen({ navigation }: Props) {
   const { agents, isLoading, refresh, deleteAgent } = useAgents();
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -32,6 +35,11 @@ export function DashboardScreen({ navigation }: Props) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => deleteAgent(item.agent.id) },
     ]);
+  };
+
+  const openAgentEditor = (templateId?: string) => {
+    setShowAddModal(false);
+    navigation.navigate('AgentEdit', templateId ? { templateId } : {});
   };
 
   return (
@@ -55,13 +63,9 @@ export function DashboardScreen({ navigation }: Props) {
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>No agents yet</Text>
           <Text style={styles.emptyBody}>
-            Add Claude, a Hermes agent, or any custom endpoint. They can all share one saved
-            session.
+            Start from a template, add a credential in the Vault, and it's live.
           </Text>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => navigation.navigate('AgentEdit', {})}
-          >
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setShowAddModal(true)}>
             <Text style={styles.primaryButtonText}>Add your first agent</Text>
           </TouchableOpacity>
         </View>
@@ -94,15 +98,58 @@ export function DashboardScreen({ navigation }: Props) {
         />
       )}
 
-      {agents.length > 0 && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate('AgentEdit', {})}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity style={styles.fab} onPress={() => setShowAddModal(true)}>
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+
+      <AddAgentModal visible={showAddModal} onClose={() => setShowAddModal(false)} onPick={openAgentEditor} />
     </View>
+  );
+}
+
+function AddAgentModal({
+  visible,
+  onClose,
+  onPick,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onPick: (templateId?: string) => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Add an agent</Text>
+          <Text style={styles.modalSubtitle}>
+            Pick a template to start pre-configured, or build one from scratch.
+          </Text>
+          {AGENT_TEMPLATES.map((template) => (
+            <TouchableOpacity
+              key={template.id}
+              style={styles.templateRow}
+              onPress={() => onPick(template.id)}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.templateTitle}>{template.label}</Text>
+                <Text style={styles.templateDesc}>{template.description}</Text>
+              </View>
+              <Text style={styles.templateChevron}>›</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={styles.templateRow} onPress={() => onPick(undefined)}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.templateTitle}>Start from scratch</Text>
+              <Text style={styles.templateDesc}>Blank agent — pick everything yourself.</Text>
+            </View>
+            <Text style={styles.templateChevron}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.modalCancel} onPress={onClose}>
+            <Text style={styles.modalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -168,4 +215,26 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabText: { color: '#fff', fontSize: 28, lineHeight: 30 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  modalSubtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 16 },
+  templateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  templateTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  templateDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  templateChevron: { fontSize: 20, color: colors.textMuted, paddingLeft: 8 },
+  modalCancel: { marginTop: 16, alignItems: 'center' },
+  modalCancelText: { color: colors.textMuted, fontWeight: '600', fontSize: 14 },
 });

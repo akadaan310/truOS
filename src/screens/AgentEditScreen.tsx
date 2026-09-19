@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AGENT_TEMPLATES } from '../data/agentTemplates';
 import { useCredentialGroups } from '../hooks/useCredentialGroups';
 import { agentStore } from '../storage/metadataStore';
 import { getAllTools } from '../tools/registry';
@@ -34,17 +35,20 @@ const DEFAULT_BASE_URL: Record<ProviderType, string> = {
 export function AgentEditScreen({ navigation, route }: Props) {
   const agentId = route.params?.agentId;
   const isEditing = !!agentId;
+  const template = !isEditing && route.params?.templateId
+    ? AGENT_TEMPLATES.find((t) => t.id === route.params.templateId)
+    : undefined;
   const { groups, refresh: refreshGroups } = useCredentialGroups();
 
   const [id] = useState(() => agentId ?? generateId());
   const [createdAtEpochMs, setCreatedAtEpochMs] = useState(() => Date.now());
-  const [name, setName] = useState('');
-  const [providerType, setProviderType] = useState<ProviderType>('ANTHROPIC');
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL.ANTHROPIC);
-  const [model, setModel] = useState('');
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [name, setName] = useState(() => template?.label ?? '');
+  const [providerType, setProviderType] = useState<ProviderType>(() => template?.providerType ?? 'ANTHROPIC');
+  const [baseUrl, setBaseUrl] = useState(() => template?.baseUrl ?? DEFAULT_BASE_URL.ANTHROPIC);
+  const [model, setModel] = useState(() => template?.model ?? '');
+  const [systemPrompt, setSystemPrompt] = useState(() => template?.systemPrompt ?? '');
   const [credentialGroupId, setCredentialGroupId] = useState<string | undefined>(undefined);
-  const [enabledTools, setEnabledTools] = useState<string[]>([]);
+  const [enabledTools, setEnabledTools] = useState<string[]>(() => template?.enabledTools ?? []);
   const [autoApproveTools, setAutoApproveTools] = useState(false);
 
   useEffect(() => {

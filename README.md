@@ -60,6 +60,9 @@ src/
   screens/             DashboardScreen, AgentEditScreen, VaultScreen, ChatScreen,
                        BrowsersScreen, BrowserScreen
   components/          Shared UI (StatusChip, ...)
+  data/agentTemplates.ts  Ready-to-go agent configs (Claude, GPT, local Hermes,
+                       custom webhook) offered from the Dashboard's "+"
+  utils/sse.ts         XHR-based SSE reader powering streamed replies
   theme/colors.ts      Color tokens
 ```
 
@@ -67,6 +70,15 @@ Adding a new kind of agent means adding one gateway module and a
 `ProviderType` entry — the UI, storage, and vault-sharing logic need no
 changes. Adding a new tool means adding one file under `tools/builtins/` and
 registering it — no agent, gateway, or harness code changes.
+
+The Dashboard's "+" never opens on a blank form: it offers templates for
+Claude, GPT, a local Hermes agent, and a custom webhook, each pre-filled
+with a sensible base URL, model, and tool loadout — add a credential in the
+Vault and that agent is live. Plain conversational turns (no tools enabled
+for that agent) stream in live token-by-token instead of appearing all at
+once, for Anthropic and OpenAI-compatible agents; a turn that could produce
+a tool call still waits for the full response, since reliably accumulating
+partial tool-call arguments across a stream isn't worth the risk.
 
 ## The harness
 

@@ -1,5 +1,6 @@
 import type { ToolSpec } from '../tools/types';
 import type { Agent, ChatMessage, ToolCall } from '../types/models';
+import { streamSSE } from '../utils/sse';
 import { AgentGateway, GatewayError, GatewayResult } from './types';
 
 interface AnthropicContentBlock {
@@ -69,18 +70,29 @@ function toAnthropicTools(tools: ToolSpec[]) {
   }));
 }
 
+function anthropicHeaders(secret: string): Record<string, string> {
+  return {
+    'x-api-key': secret,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+  };
+}
+
 /** Speaks the Anthropic Messages API (`POST /v1/messages`), including tool use. */
 export const anthropicGateway: AgentGateway = {
   supportsTools: true,
+  supportsStreaming: true,
 
   async sendMessage(
     agent: Agent,
     secret: string | null,
     history: ChatMessage[],
     tools: ToolSpec[],
+    onTextDelta?: (textSoFar: string) => void,
   ): Promise<GatewayResult> {
     if (!secret) throw new GatewayError(`No API key configured for ${agent.name}`);
 
+    const url = `${agent.baseUrl.replace(/\/$/, '')}/v1/messages`;
     const body: Record<string, unknown> = {
       model: agent.model || 'claude-sonnet-5',
       max_tokens: 2048,
@@ -89,15 +101,29 @@ export const anthropicGateway: AgentGateway = {
     if (agent.systemPrompt) body.system = agent.systemPrompt;
     if (tools.length > 0) body.tools = toAnthropicTools(tools);
 
-    const response = await fetch(`${agent.baseUrl.replace(/\/$/, '')}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'x-api-key': secret,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    if (tools.length === 0 && onTextDelta) {
+      body.stream = true;
+      let text = '';
+      try {
+        await streamSSE(url, { method: 'POST', headers: anthropicHeaders(secret), body: JSON.stringify(body) }, (line) => {
+          if (line === '[DONE]') return;
+          try {
+            const event = JSON.parse(line);
+            if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+              text += event.delta.text ?? '';
+              onTextDelta(text);
+            }
+          } catch {
+            // ignore malformed SSE frames
+          }
+        });
+      } catch (error) {
+        throw new GatewayError(error instanceof Error ? error.message : String(error));
+      }
+      return { text, toolCalls: [] };
+    }
+
+    const response = await fetch(url, { method: 'POST', headers: anthropicHeaders(secret), body: JSON.stringify(body) });
 
     const text = await response.text();
     if (!response.ok) {

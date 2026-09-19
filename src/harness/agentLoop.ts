@@ -18,6 +18,9 @@ export interface HarnessCallbacks {
   onMessage: (message: ChatMessage) => Promise<void>;
   /** An earlier message (almost always a pending-approval one) was resolved in place. */
   onUpdateMessage: (messageId: string, patch: Partial<ChatMessage>) => Promise<void>;
+  /** A streaming reply grew — UI-only, not persisted (the final text is persisted once via
+   * onUpdateMessage when the stream ends). Omit to disable streaming entirely. */
+  onStreamDelta?: (messageId: string, textSoFar: string) => void;
 }
 
 export interface AgentTurnOutcome {
@@ -88,6 +91,27 @@ export async function runAgentTurn(
   const exposedTools = gateway.supportsTools ? getExposedTools(agent) : [];
   const effectiveAgent: Agent = { ...agent, systemPrompt: buildSystemPrompt(agent, exposedTools) };
   const secret = await sessionManager.resolveSecret(agent);
+
+  // No tools means the model can never ask for one, so a plain conversational turn can stream
+  // live instead of waiting for the full reply — the tool-call path below stays non-streaming,
+  // since accumulating partial tool-call arguments reliably across chunks isn't worth the risk.
+  if (gateway.supportsStreaming && exposedTools.length === 0 && callbacks.onStreamDelta) {
+    const placeholder = assistantMessage(agent, '');
+    await callbacks.onMessage(placeholder);
+    try {
+      const result = await gateway.sendMessage(effectiveAgent, secret, history, [], (textSoFar) =>
+        callbacks.onStreamDelta!(placeholder.id, textSoFar),
+      );
+      await callbacks.onUpdateMessage(placeholder.id, { content: result.text || '(empty reply)' });
+    } catch (error) {
+      const text =
+        error instanceof GatewayError
+          ? error.message
+          : `Connection error: ${error instanceof Error ? error.message : String(error)}`;
+      await callbacks.onUpdateMessage(placeholder.id, { content: text, isError: true });
+    }
+    return {};
+  }
 
   let workingHistory = history;
 

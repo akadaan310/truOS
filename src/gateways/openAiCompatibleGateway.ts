@@ -1,5 +1,6 @@
 import type { ToolSpec } from '../tools/types';
 import type { Agent, ChatMessage, ToolCall } from '../types/models';
+import { streamSSE } from '../utils/sse';
 import { AgentGateway, GatewayError, GatewayResult } from './types';
 
 interface OpenAiToolCall {
@@ -52,23 +53,49 @@ function toOpenAiTools(tools: ToolSpec[]) {
  */
 export const openAiCompatibleGateway: AgentGateway = {
   supportsTools: true,
+  supportsStreaming: true,
 
   async sendMessage(
     agent: Agent,
     secret: string | null,
     history: ChatMessage[],
     tools: ToolSpec[],
+    onTextDelta?: (textSoFar: string) => void,
   ): Promise<GatewayResult> {
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (secret) headers.Authorization = `Bearer ${secret}`;
 
+    const url = `${agent.baseUrl.replace(/\/$/, '')}/chat/completions`;
     const body: Record<string, unknown> = {
       model: agent.model || 'gpt-4o-mini',
       messages: toOpenAiMessages(agent, history),
     };
     if (tools.length > 0) body.tools = toOpenAiTools(tools);
 
-    const response = await fetch(`${agent.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+    if (tools.length === 0 && onTextDelta) {
+      body.stream = true;
+      let text = '';
+      try {
+        await streamSSE(url, { method: 'POST', headers, body: JSON.stringify(body) }, (line) => {
+          if (line === '[DONE]') return;
+          try {
+            const event = JSON.parse(line);
+            const delta = event.choices?.[0]?.delta?.content;
+            if (delta) {
+              text += delta;
+              onTextDelta(text);
+            }
+          } catch {
+            // ignore malformed SSE frames
+          }
+        });
+      } catch (error) {
+        throw new GatewayError(error instanceof Error ? error.message : String(error));
+      }
+      return { text, toolCalls: [] };
+    }
+
+    const response = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

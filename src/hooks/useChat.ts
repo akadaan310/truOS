@@ -12,6 +12,8 @@ export function useChat(agent: Agent | undefined) {
   const [isSending, setIsSending] = useState(false);
   const [pending, setPending] = useState<{ messageId: string; call: ToolCall } | undefined>(undefined);
 
+  const lastStreamUpdateRef = useRef(0);
+
   const setAll = useCallback((list: ChatMessage[]) => {
     messagesRef.current = list;
     setMessages(list);
@@ -36,6 +38,13 @@ export function useChat(agent: Agent | undefined) {
       onUpdateMessage: async (messageId, patch) => {
         if (!agent) return;
         setAll(await chatStore.update(agent.id, messageId, patch));
+      },
+      onStreamDelta: (messageId, textSoFar) => {
+        // UI-only, not persisted — throttled so a fast stream doesn't re-render on every token.
+        const now = Date.now();
+        if (now - lastStreamUpdateRef.current < 50) return;
+        lastStreamUpdateRef.current = now;
+        setAll(messagesRef.current.map((m) => (m.id === messageId ? { ...m, content: textSoFar } : m)));
       },
     }),
     [agent, setAll],

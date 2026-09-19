@@ -13,6 +13,7 @@ import { AgentGateway, GatewayError, GatewayResult } from './types';
  */
 export const hermesGateway: AgentGateway = {
   supportsTools: true,
+  supportsStreaming: false,
 
   async sendMessage(
     agent: Agent,

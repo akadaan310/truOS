@@ -10,6 +10,7 @@ import { AgentGateway, GatewayError, GatewayResult } from './types';
  */
 export const customWebhookGateway: AgentGateway = {
   supportsTools: false,
+  supportsStreaming: false,
 
   async sendMessage(agent: Agent, secret: string | null, history: ChatMessage[]): Promise<GatewayResult> {
     const lastMessage = history[history.length - 1]?.content ?? '';
