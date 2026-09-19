@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "truOS Hub",
+    "slug": "truOS",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0E0E14",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.truos.hub"
+    },
+    "android": {
+      "package": "com.truos.hub",
+      "adaptiveIcon": {
+        "backgroundColor": "#0E0E14",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
