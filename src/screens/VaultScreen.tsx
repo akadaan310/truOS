@@ -106,6 +106,12 @@ function CredentialCard({
           : `Shared session used by: ${item.sharedByAgents.map((a) => a.name).join(', ')}`}
       </Text>
 
+      {item.filedBrowsers.length > 0 && (
+        <Text style={styles.sharedBy}>
+          Browser tabs filed here: {item.filedBrowsers.map((b) => b.name).join(', ')}
+        </Text>
+      )}
+
       {rotating && (
         <TextInput
           style={styles.input}

@@ -41,9 +41,14 @@ export function DashboardScreen({ navigation }: Props) {
           <Text style={styles.title}>truOS Hub</Text>
           <Text style={styles.subtitle}>Your agents, one shared vault</Text>
         </View>
-        <TouchableOpacity style={styles.vaultButton} onPress={() => navigation.navigate('Vault')}>
-          <Text style={styles.vaultButtonText}>Vault</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.vaultButton} onPress={() => navigation.navigate('Browsers')}>
+            <Text style={styles.vaultButtonText}>Browsers</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.vaultButton} onPress={() => navigation.navigate('Vault')}>
+            <Text style={styles.vaultButtonText}>Vault</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {!isLoading && agents.length === 0 ? (
@@ -113,6 +118,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 26, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  headerButtons: { flexDirection: 'row', gap: 8 },
   vaultButton: {
     backgroundColor: colors.surfaceVariant,
     paddingHorizontal: 14,

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { credentialGroupStore } from '../storage/metadataStore';
+import { browserProfileStore, credentialGroupStore } from '../storage/metadataStore';
 import { sessionManager } from '../storage/sessionManager';
-import type { Agent, AuthKind, CredentialGroup } from '../types/models';
+import type { Agent, AuthKind, BrowserProfile, CredentialGroup } from '../types/models';
 import { generateId } from '../utils/id';
 
 export interface CredentialGroupWithDetails {
   group: CredentialGroup;
   sharedByAgents: Agent[];
+  filedBrowsers: BrowserProfile[];
   hasSecret: boolean;
 }
 
@@ -20,6 +21,7 @@ export function useCredentialGroups() {
       all.map(async (group) => ({
         group,
         sharedByAgents: await sessionManager.agentsSharing(group.id),
+        filedBrowsers: await browserProfileStore.byCredentialGroup(group.id),
         hasSecret: await sessionManager.hasSecret(group.id),
       })),
     );

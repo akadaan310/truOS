@@ -1,10 +1,11 @@
 # truOS Hub
 
 A React Native (Expo) app that acts as a single interface center for multiple
-AI agents — Claude, Hermes-family agents, and any OpenAI-compatible or
-custom webhook agent — with **shared sessions**: log a credential in once,
-and every agent configured to use it reuses that same session instead of
-asking you to sign in again.
+AI agents — Claude, Hermes-family agents, any OpenAI-compatible or custom
+webhook agent, and web-only products like ChatGPT/Claude.ai/Perplexity via
+an in-app browser — with **shared sessions**: log a credential in once, and
+every agent configured to use it reuses that same session instead of asking
+you to sign in again.
 
 ## Core idea
 
@@ -43,10 +44,11 @@ src/
                                 Hermes-family agents
     customWebhookGateway.ts    Generic {"message": ...} -> reply
     gatewayFactory.ts          Picks the right adapter for an agent's providerType
-  hooks/              useAgents, useCredentialGroups, useChat — bridge
-                       storage + gateways to the screens
+  hooks/              useAgents, useCredentialGroups, useChat,
+                       useBrowserProfiles — bridge storage + gateways to the screens
   navigation/          RootNavigator (React Navigation native-stack)
-  screens/             DashboardScreen, AgentEditScreen, VaultScreen, ChatScreen
+  screens/             DashboardScreen, AgentEditScreen, VaultScreen, ChatScreen,
+                       BrowsersScreen, BrowserScreen
   components/          Shared UI (StatusChip, ...)
   theme/colors.ts      Color tokens
 ```
@@ -65,6 +67,23 @@ changes.
 - **Chat** — a minimal per-agent chat, persisted locally so history survives
   app restarts, that calls the agent's gateway with the resolved shared
   secret on every send.
+- **Browsers** — persistent in-app browser tabs (`react-native-webview`) for
+  signing into web-only AI products that have no public API — ChatGPT,
+  Claude.ai, Perplexity, Gemini, or anything else — with quick presets for
+  the common ones. Each tab keeps its own login exactly the way a normal
+  mobile browser tab would (the WebView's own cookie jar); a tab can
+  optionally be filed under a credential group purely for organization, so
+  the hub shows browser tabs and API-key agents that belong to the same
+  identity next to each other.
+
+  **Deliberate boundary:** this does *not* extract a signed-in tab's session
+  cookie/token and replay it against a site's internal (non-public) API to
+  drive it headlessly as an "agent." That would mean using a captured
+  session outside the site's own interface — against most of these
+  products' Terms of Service, and fragile since it breaks on any internal
+  API change. The sanctioned way to let multiple agents share one login
+  stays the Vault: paste an official API key/token once, point as many
+  agents at it as you want.
 
 ## Running it
 
@@ -94,3 +113,9 @@ This is a working foundation, not a finished product. Natural next steps:
   identity.
 - Biometric gate (expo-local-authentication) before revealing/rotating a
   vault secret.
+- Per-tab "signed in" indicator in Browsers (heuristic only — presence of a
+  known cookie name — never reading the token value).
+- True multi-account isolation for two browser tabs on the *same* site
+  needs a custom dev client with separate native WebView data stores; the
+  managed/Expo-Go-compatible WebView shares one cookie jar per domain, which
+  is fine for different services but not for two logins on one service.

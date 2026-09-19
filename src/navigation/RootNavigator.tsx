@@ -1,6 +1,8 @@
 import { DarkTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AgentEditScreen } from '../screens/AgentEditScreen';
+import { BrowserScreen } from '../screens/BrowserScreen';
+import { BrowsersScreen } from '../screens/BrowsersScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { VaultScreen } from '../screens/VaultScreen';
@@ -29,6 +31,8 @@ export function RootNavigator() {
         <Stack.Screen name="AgentEdit" component={AgentEditScreen} />
         <Stack.Screen name="Vault" component={VaultScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="Browsers" component={BrowsersScreen} />
+        <Stack.Screen name="Browser" component={BrowserScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

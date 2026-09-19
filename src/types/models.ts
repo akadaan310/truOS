@@ -61,6 +61,36 @@ export interface Agent {
 
 export type ConnectionStatus = 'CONNECTED' | 'NO_CREDENTIAL' | 'EXPIRED' | 'ERROR' | 'UNKNOWN';
 
+/**
+ * A persistent in-app browser tab — how you sign into a web-only AI product (ChatGPT, Claude.ai,
+ * Perplexity, anything without a public API) instead of an API key. The WebView's own cookie
+ * jar holds the actual session; this record is just the label, home URL, and which credential
+ * group it's filed under for organization. It never captures or exposes the site's session
+ * cookie/token to the rest of the app — that stays inside the WebView, exactly as it would in a
+ * normal mobile browser tab.
+ */
+export interface BrowserProfile {
+  id: string;
+  name: string;
+  homeUrl: string;
+  credentialGroupId?: string;
+  createdAtEpochMs: number;
+  lastOpenedAtEpochMs?: number;
+  lastUrl?: string;
+}
+
+export interface BrowserPreset {
+  name: string;
+  homeUrl: string;
+}
+
+export const BROWSER_PRESETS: BrowserPreset[] = [
+  { name: 'ChatGPT', homeUrl: 'https://chatgpt.com' },
+  { name: 'Claude.ai', homeUrl: 'https://claude.ai' },
+  { name: 'Perplexity', homeUrl: 'https://www.perplexity.ai' },
+  { name: 'Gemini', homeUrl: 'https://gemini.google.com' },
+];
+
 export type ChatRole = 'user' | 'assistant' | 'system';
 
 export interface ChatMessage {

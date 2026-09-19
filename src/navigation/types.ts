@@ -3,4 +3,6 @@ export type RootStackParamList = {
   AgentEdit: { agentId?: string };
   Vault: undefined;
   Chat: { agentId: string };
+  Browsers: undefined;
+  Browser: { profileId: string };
 };

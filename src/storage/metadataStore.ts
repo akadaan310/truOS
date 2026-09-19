@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Agent, ChatMessage, CredentialGroup } from '../types/models';
+import type { Agent, BrowserProfile, ChatMessage, CredentialGroup } from '../types/models';
 
 /**
  * Plain (non-secret) metadata storage. Agents, credential group descriptions, and chat history
@@ -11,6 +11,7 @@ const KEYS = {
   agents: 'truos.agents',
   credentialGroups: 'truos.credentialGroups',
   chatPrefix: 'truos.chat.',
+  browserProfiles: 'truos.browserProfiles',
 } as const;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -83,6 +84,37 @@ export const credentialGroupStore = {
       KEYS.credentialGroups,
       groups.filter((g) => g.id !== id),
     );
+  },
+};
+
+export const browserProfileStore = {
+  async getAll(): Promise<BrowserProfile[]> {
+    return readJson<BrowserProfile[]>(KEYS.browserProfiles, []);
+  },
+  async getById(id: string): Promise<BrowserProfile | undefined> {
+    const profiles = await browserProfileStore.getAll();
+    return profiles.find((p) => p.id === id);
+  },
+  async save(profile: BrowserProfile): Promise<void> {
+    const profiles = await browserProfileStore.getAll();
+    const index = profiles.findIndex((p) => p.id === profile.id);
+    if (index >= 0) {
+      profiles[index] = profile;
+    } else {
+      profiles.push(profile);
+    }
+    await writeJson(KEYS.browserProfiles, profiles);
+  },
+  async remove(id: string): Promise<void> {
+    const profiles = await browserProfileStore.getAll();
+    await writeJson(
+      KEYS.browserProfiles,
+      profiles.filter((p) => p.id !== id),
+    );
+  },
+  async byCredentialGroup(credentialGroupId: string): Promise<BrowserProfile[]> {
+    const profiles = await browserProfileStore.getAll();
+    return profiles.filter((p) => p.credentialGroupId === credentialGroupId);
   },
 };
 
